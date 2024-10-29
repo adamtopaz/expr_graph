@@ -21,7 +21,6 @@ def runTypeGraphCmd (p : Parsed) : IO UInt32 := do
     for (n,c) in env.constants do
       if ← n.isBlackListed then continue
       cs := cs.push (n,c) 
-    -- Use 8 threads
     let ctx ← read
     let state ← get
     let res ← cs.runInParallel threads fun idx (n,c) => do
