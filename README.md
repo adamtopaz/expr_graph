@@ -12,7 +12,7 @@ To generate graphs associated to the types of all constants in `mathlib`, use th
 lake exe entrypoint type_graph output 8 5000
 ```
 This will dump the data to the file `output`, and the calculation will be done using 8 threads.
-Processing of each constant will have a timeout of 5000 milliseconds
+Processing of each constant will have a timeout of 5000 milliseconds.
 
 The function used to make the graphs can be found by importing `ExprGraph.Basic`, and it has the following type:
 ```lean
