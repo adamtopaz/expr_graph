@@ -24,8 +24,9 @@ def runTypeGraphCmd (p : Parsed) : IO UInt32 := do
     -- Use 8 threads
     let ctx ← read
     let state ← get
-    let res ← cs.runInParallel threads fun idx (n,c) => 
-      withTimeout timeout <| Core.CoreM.toIO (go idx n c handle) ctx state <&> Prod.fst
+    let res ← cs.runInParallel threads fun idx (n,c) => do
+      try withTimeout timeout <| Core.CoreM.toIO (go idx n c handle) ctx state <&> Prod.fst
+      catch _e => return .ok ()
     match res with 
     | .ok () => return 0
     | .error e => show IO _ from throw e
