@@ -85,7 +85,7 @@
    "type": "git",
    "subDir": null,
    "scope": "",
-   "rev": "7b7689fefeb49968c32ea7412c9e5f9d524c7e62",
+   "rev": "f375abcd64ea73658fec8771ca521b1739d39755",
    "name": "lean_extras",
    "manifestFile": "lake-manifest.json",
    "inputRev": null,
