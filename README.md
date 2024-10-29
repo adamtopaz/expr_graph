@@ -22,5 +22,6 @@ The output is a pair of the root node and the graph itself.
 
 ## TODO
 
-Right now, the data generation script truncates universe levels and proofs are `level` and `proof` nodes, respectively.
-These options should be configurable as flags.
+- Right now, the data generation script truncates universe levels and proofs are `level` and `proof` nodes, respectively.
+  These options should be configurable as flags.
+- Better filtering of the constants to be considered in the data generation script.
