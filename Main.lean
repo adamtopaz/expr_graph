@@ -11,6 +11,7 @@ def runTypeGraphCmd (p : Parsed) : IO UInt32 := do
   searchPathRef.set compile_time_search_path%
   let output : String := p.positionalArg! "output" |>.as! String
   let threads : Nat := p.positionalArg! "threads" |>.as! Nat
+  let timeout : Nat := p.positionalArg! "timeout" |>.as! Nat
   let output : System.FilePath := output
   let handle ← IO.FS.Handle.mk output .write
   let options : Options := maxHeartbeats.set {} 0
@@ -24,7 +25,7 @@ def runTypeGraphCmd (p : Parsed) : IO UInt32 := do
     let ctx ← read
     let state ← get
     let res ← cs.runInParallel threads fun idx (n,c) => 
-      Core.CoreM.toIO (go idx n c handle) ctx state <&> Prod.fst
+      withTimeout timeout <| Core.CoreM.toIO (go idx n c handle) ctx state <&> Prod.fst
     match res with 
     | .ok () => return 0
     | .error e => show IO _ from throw e
@@ -48,6 +49,7 @@ def typeGraphCmd := `[Cli|
   ARGS:
     "output" : String; "Output file"
     "threads" : Nat; "Number of threads to use"
+    "timeout" : Nat; "Timeout for each calculation in milliseconds"
 ]
 
 def entrypoint := `[Cli|
