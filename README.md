@@ -24,6 +24,13 @@ If false, this will construct an expression graph associated to the definition o
 The option `compressProofs? : Bool`, if true, will compress proofs as a plain `proof`, while adding the graph associated to the *type* of the proof to the graph. 
 If false, this will construct the expression graph associated to the proof itself.
 
+The type `ExprGraph` is an abbreviation:
+```lean
+abbrev ExprGraph := HashGraph (WithId ExprGraph.Node) (WithId ExprGraph.Edge)
+```
+
+The definitions of `HashGraph` and `WithId` can be found at [this repository](https://github.com/adamtopaz/lean_extras). 
+
 ## Usage
 
 To generate graphs associated to the types of all constants in `mathlib`, use the following command:
