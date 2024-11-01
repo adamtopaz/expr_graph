@@ -28,6 +28,7 @@ inductive Node where
   | forallE (bi : BinderInfo)
   | proj (nm : Name) (idx : Nat)
   | letE
+  | goalState
 deriving Hashable, BEq, ToJson, DecidableEq, Inhabited
 
 inductive Edge where
@@ -56,6 +57,8 @@ inductive Edge where
   --| letEType
   --| letEVal
   | projStruct
+  | localDecl
+  | goal (idx : Nat)
 deriving Hashable, BEq, ToJson, DecidableEq
 
 def Node.toString : Node → String := fun
@@ -80,6 +83,7 @@ def Node.toString : Node → String := fun
   | .forallE _bi => s!"forallE"
   | .letE => s!"letE"
   | .proj nm idx => s!"proj {nm} {idx}"
+  | .goalState => "goalState"
 
 def Edge.toString : Edge → String := fun
   | .levelSuccArg => "levelSuccArg"
@@ -107,6 +111,8 @@ def Edge.toString : Edge → String := fun
   --| .letEType => "letEType"
   --| .letEVal => "letEVal"
   | .projStruct => "projStruct"
+  | .localDecl => "localDecl"
+  | .goal idx => s!"goal {idx}"
 
 end ExprGraph
 
