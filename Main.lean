@@ -4,6 +4,7 @@ import ImportGraph.RequiredModules
 import Mathlib.Lean.Expr.Basic
 import Mathlib.Lean.CoreM
 import LeanExtras
+import Utils
 
 open Cli Lean
 
@@ -154,12 +155,43 @@ def subexprGraphCmd := `[Cli|
     "timeout" : Nat; "Timeout for each calculation in milliseconds"
 ]
 
+open Elab Term Tactic in
+def runTacticGraphCmd (p : Parsed) : IO UInt32 := do
+  searchPathRef.set compile_time_search_path%
+  let module : Name := p.positionalArg! "module" |>.as! String |>.toName
+  let options : Options := maxHeartbeats.set {} 0
+  let leanFile : LeanFile := { ← LeanFile.findModule module with options := options }
+  leanFile.withVisitInfoTrees' (post := fun _ _ _ => return) fun ctxInfo info _children => do
+    let .ofTacticInfo info := info | return
+    unless info.isOriginal do return
+    unless info.isSubstantive do return
+    let ⟨node, graph⟩ ← ctxInfo.runMetaM {} <| Meta.withMCtx info.mctxBefore <| mkGoalStateExprGraph info.goalsBefore
+    println! Json.compress <| .mkObj [
+      ("graph", graph.mkJsonWithIdx node (fun a => toJson a.val) (fun a => toJson a.val)),
+      ("dot", graph.mkDotWithIdx node (fun a => a.val.toString) (fun a => a.val.toString) hash),
+      ("pp", toString <| ← ctxInfo.ppGoals info.goalsBefore),
+      ("name", toJson info.name?),
+      ("stx", toString info.stx.prettyPrint),
+      ("usedConstants", toJson info.getUsedConstantsAsSet.toArray)
+    ]
+  return 0
+
+def tacticGraphCmd := `[Cli|
+  tactic_graph VIA runTacticGraphCmd;
+  "Generate graphs for all tactics in a given module."
+  ARGS:
+    "module" : String; "Module to elaborate"
+]
+
+
+
 def entrypoint := `[Cli|
   entrypoint NOOP; "Entry point for this program"
   SUBCOMMANDS:
   typeGraphCmd;
   typeValGraphCmd;
-  subexprGraphCmd
+  subexprGraphCmd;
+  tacticGraphCmd
 ]
 
 

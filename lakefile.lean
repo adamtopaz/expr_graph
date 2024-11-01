@@ -19,6 +19,9 @@ require lean_extras from git
 lean_lib «ExprGraph» where
 
 @[default_target]
+lean_lib Utils where
+
+@[default_target]
 lean_exe entrypoint where
   root := `Main
   supportInterpreter := true
