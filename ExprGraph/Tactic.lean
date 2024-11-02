@@ -18,7 +18,7 @@ def Lean.MVarId.mkExprGraph (id : MVarId) : MetaM (WithId Node × ExprGraph) := 
       outGraph := outGraph ∪ fvGraph |>.insertEdge ⟨.localDecl, node.id⟩ fvNode node
   return (node, outGraph)
 
-def mkGoalStateExprGraph (goals : List MVarId) :  MetaM (WithId Node × ExprGraph) := do
+def mkGoalStateExprGraph (goals : List MVarId) : MetaM (WithId Node × ExprGraph) := do
   let mut id : UInt64 := hash "goalState"
   for goal in goals do
     let tp ← goal.getType
