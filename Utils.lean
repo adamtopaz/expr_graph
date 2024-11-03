@@ -36,4 +36,27 @@ def getUsedConstantsAsSet (t : TacticInfo) : NameSet :=
 
 end Lean.Elab.TacticInfo
 
+namespace Lean.Elab.ContextInfo
 
+def runCoreM' (info : ContextInfo) (x : CoreM α) : IO α := do
+  let initHeartbeats ← IO.getNumHeartbeats
+  Prod.fst <$> x.toIO
+    { currNamespace := info.currNamespace, 
+      openDecls := info.openDecls,
+      fileName := "<InfoTree>", 
+      fileMap := default,
+      initHeartbeats := initHeartbeats,
+      maxHeartbeats := maxHeartbeats.get info.options,
+      options := info.options }
+    { env := info.env, ngen := info.ngen }
+
+def runMetaM' (info : ContextInfo) (lctx : LocalContext) (x : MetaM α) : IO α := do
+  Prod.fst <$> info.runCoreM' (x.run { lctx := lctx } { mctx := info.mctx })
+
+def ppGoals' (ctx : ContextInfo) (goals : List MVarId) : IO Format :=
+  if goals.isEmpty then
+    return "no goals"
+  else
+    ctx.runMetaM' {} (return Std.Format.prefixJoin "\n" (← goals.mapM (Meta.ppGoal ·)))
+
+end Lean.Elab.ContextInfo

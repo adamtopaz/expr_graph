@@ -165,11 +165,11 @@ def runTacticGraphCmd (p : Parsed) : IO UInt32 := do
     let .ofTacticInfo info := info | return
     unless info.isOriginal do return
     unless info.isSubstantive do return
-    let ⟨node, graph⟩ ← ctxInfo.runMetaM {} <| Meta.withMCtx info.mctxBefore <| mkGoalStateExprGraph info.goalsBefore
+    let ⟨node, graph⟩ ← ctxInfo.runMetaM' {} <| Meta.withMCtx info.mctxBefore <| mkGoalStateExprGraph info.goalsBefore
     println! Json.compress <| .mkObj [
       ("graph", graph.mkJsonWithIdx node (fun a => toJson a.val) (fun a => toJson a.val)),
       ("dot", graph.mkDotWithIdx node (fun a => a.val.toString) (fun a => a.val.toString) hash),
-      ("pp", toString <| ← ctxInfo.ppGoals info.goalsBefore),
+      ("pp", toString <| ← ctxInfo.ppGoals' info.goalsBefore),
       ("name", toJson info.name?),
       ("stx", toString info.stx.prettyPrint),
       ("usedConstants", toJson info.getUsedConstantsAsSet.toArray)
