@@ -161,13 +161,15 @@ def runTacticGraphCmd (p : Parsed) : IO UInt32 := do
   let module : Name := p.positionalArg! "module" |>.as! String |>.toName
   let options : Options := maxHeartbeats.set {} 0
   let leanFile : LeanFile := { ← LeanFile.findModule module with options := options }
+  let compressUniverses? : Bool := ! p.hasFlag "universes"
+  let compressProofs? : Bool := ! p.hasFlag "proofs"
   leanFile.withVisitInfoTrees' (post := fun _ _ _ => return) fun ctxInfo info _children => do
     let .ofTacticInfo info := info | return
     unless info.isOriginal do return
     unless info.isSubstantive do return
     let ⟨node, graph⟩ ← ctxInfo.runMetaM' {} 
       <| Meta.withMCtx info.mctxBefore 
-      <| mkGoalStateExprGraph info.goalsBefore true true
+      <| mkGoalStateExprGraph info.goalsBefore compressUniverses? compressProofs?
     println! Json.compress <| .mkObj [
       ("graph", graph.mkJsonWithIdx node (fun a => toJson a.val) (fun a => toJson a.val)),
       ("dot", graph.mkDotWithIdx node (fun a => a.val.toString) (fun a => a.val.toString) hash),
@@ -181,11 +183,12 @@ def runTacticGraphCmd (p : Parsed) : IO UInt32 := do
 def tacticGraphCmd := `[Cli|
   tactic_graph VIA runTacticGraphCmd;
   "Generate graphs for all tactics in a given module."
+  FLAGS:
+    u, universes; "Include uncompressed universe levels in the graph"
+    p, proofs; "Include uncompressed proofs in the graph"
   ARGS:
     "module" : String; "Module to elaborate"
 ]
-
-
 
 def entrypoint := `[Cli|
   entrypoint NOOP; "Entry point for this program"
