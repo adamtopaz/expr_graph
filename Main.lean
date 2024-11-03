@@ -163,6 +163,7 @@ def runTacticGraphCmd (p : Parsed) : IO UInt32 := do
   let leanFile : LeanFile := { ← LeanFile.findModule module with options := options }
   let compressUniverses? : Bool := ! p.hasFlag "universes"
   let compressProofs? : Bool := ! p.hasFlag "proofs"
+  let debug? : Bool := p.hasFlag "debug"
   leanFile.withVisitInfoTrees' (post := fun _ _ _ => return) fun ctxInfo info _children => do
     let .ofTacticInfo info := info | return
     unless info.isOriginal do return
@@ -173,7 +174,7 @@ def runTacticGraphCmd (p : Parsed) : IO UInt32 := do
         <| Meta.withMCtx info.mctxBefore 
         <| mkGoalStateExprGraph info.goalsBefore compressUniverses? compressProofs?
       let pp ← ctxInfo.ppGoals' info.goalsBefore
-      println! Json.compress <| .mkObj [
+      if !debug? then println! Json.compress <| .mkObj [
         ("graph", graph.mkJsonWithIdx node (fun a => toJson a.val) (fun a => toJson a.val)),
         ("dot", graph.mkDotWithIdx node (fun a => a.val.toString) (fun a => a.val.toString) hash),
         ("pp", toString <| pp),
@@ -182,7 +183,7 @@ def runTacticGraphCmd (p : Parsed) : IO UInt32 := do
         ("usedConstants", toJson info.getUsedConstantsAsSet.toArray)
       ]
     catch err => 
-      println! Json.compress <| .mkObj [
+      if debug? then println! Json.compress <| .mkObj [
         ("error", toString err),
         ("module", toJson module),
         ("name", toJson info.name?),
@@ -196,6 +197,7 @@ def tacticGraphCmd := `[Cli|
   FLAGS:
     u, universes; "Include uncompressed universe levels in the graph"
     p, proofs; "Include uncompressed proofs in the graph"
+    d, debug; "Only print error messages"
   ARGS:
     "module" : String; "Module to elaborate"
 ]

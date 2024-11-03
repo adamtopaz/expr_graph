@@ -3,21 +3,23 @@ import LeanExtras.Frontend
 
 open Lean Elab Tactic ExprGraph
 
+def Lean.Expr.mkExprGraphWithLCtx (expr : Expr) (compressUniverses? compressProofs? : Bool) : 
+    MetaM (WithId Node × ExprGraph) := do
+  let lctx ← getLCtx
+  let (node, graph) ← expr.mkExprGraph compressUniverses? compressProofs?
+  let mut outGraph := graph
+  for (fvarId, _) in lctx.fvarIdToDecl do
+    try 
+      let (fvNode, fvGraph) ← (Expr.fvar fvarId).mkExprGraph compressUniverses? compressProofs?
+      outGraph := outGraph ∪ fvGraph |>.insertEdge ⟨.localDecl, node.id⟩ fvNode node
+    catch _ => 
+      continue
+  return (node, outGraph)
+
 def Lean.MVarId.mkExprGraph (id : MVarId) (compressUniverses? compressProofs? : Bool) : 
     MetaM (WithId Node × ExprGraph) := id.withContext do
   let tp ← id.getType
-  let lctx ← getLCtx
-  let (node, graph) ← tp.mkExprGraph compressUniverses? compressProofs?
-  let mut outGraph := graph
-  for localDecl in lctx.decls do
-    match localDecl with
-    | none => continue
-    | some d => 
-      if d.isAuxDecl || d.isImplementationDetail then continue
-      let fvarId := d.fvarId
-      let (fvNode, fvGraph) ← (Expr.fvar fvarId).mkExprGraph compressUniverses? compressProofs?
-      outGraph := outGraph ∪ fvGraph |>.insertEdge ⟨.localDecl, node.id⟩ fvNode node
-  return (node, outGraph)
+  tp.mkExprGraphWithLCtx compressUniverses? compressProofs?
 
 def mkGoalStateExprGraph (goals : List MVarId) (compressUniverses? compressProofs? : Bool) :
     MetaM (WithId Node × ExprGraph) := do
