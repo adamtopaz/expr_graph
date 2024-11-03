@@ -167,6 +167,7 @@ def runTacticGraphCmd (p : Parsed) : IO UInt32 := do
     let .ofTacticInfo info := info | return
     unless info.isOriginal do return
     unless info.isSubstantive do return
+    let ctxInfo := { ctxInfo with options := maxHeartbeats.set ctxInfo.options 0 }
     try
       let ⟨node, graph⟩ ← ctxInfo.runMetaM' {} 
         <| Meta.withMCtx info.mctxBefore 

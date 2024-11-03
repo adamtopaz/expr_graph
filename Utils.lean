@@ -39,13 +39,13 @@ end Lean.Elab.TacticInfo
 namespace Lean.Elab.ContextInfo
 
 def runCoreM' (info : ContextInfo) (x : CoreM α) : IO α := do
-  --let initHeartbeats ← IO.getNumHeartbeats
+  let initHeartbeats ← IO.getNumHeartbeats
   Prod.fst <$> x.toIO
     { currNamespace := info.currNamespace, 
       openDecls := info.openDecls,
       fileName := "<InfoTree>", 
       fileMap := default,
-      initHeartbeats := 0, --initHeartbeats,
+      initHeartbeats := initHeartbeats,
       maxHeartbeats := maxHeartbeats.get info.options,
       options := info.options }
     { env := info.env, ngen := info.ngen }
