@@ -167,17 +167,26 @@ def runTacticGraphCmd (p : Parsed) : IO UInt32 := do
     let .ofTacticInfo info := info | return
     unless info.isOriginal do return
     unless info.isSubstantive do return
-    let ⟨node, graph⟩ ← ctxInfo.runMetaM' {} 
-      <| Meta.withMCtx info.mctxBefore 
-      <| mkGoalStateExprGraph info.goalsBefore compressUniverses? compressProofs?
-    println! Json.compress <| .mkObj [
-      ("graph", graph.mkJsonWithIdx node (fun a => toJson a.val) (fun a => toJson a.val)),
-      ("dot", graph.mkDotWithIdx node (fun a => a.val.toString) (fun a => a.val.toString) hash),
-      ("pp", toString <| ← ctxInfo.ppGoals' info.goalsBefore),
-      ("name", toJson info.name?),
-      ("stx", toString info.stx.prettyPrint),
-      ("usedConstants", toJson info.getUsedConstantsAsSet.toArray)
-    ]
+    try
+      let ⟨node, graph⟩ ← ctxInfo.runMetaM' {} 
+        <| Meta.withMCtx info.mctxBefore 
+        <| mkGoalStateExprGraph info.goalsBefore compressUniverses? compressProofs?
+      let pp ← ctxInfo.ppGoals' info.goalsBefore
+      println! Json.compress <| .mkObj [
+        ("graph", graph.mkJsonWithIdx node (fun a => toJson a.val) (fun a => toJson a.val)),
+        ("dot", graph.mkDotWithIdx node (fun a => a.val.toString) (fun a => a.val.toString) hash),
+        ("pp", toString <| pp),
+        ("name", toJson info.name?),
+        ("stx", toString info.stx.prettyPrint),
+        ("usedConstants", toJson info.getUsedConstantsAsSet.toArray)
+      ]
+    catch err => 
+      println! Json.compress <| .mkObj [
+        ("error", toString err),
+        ("module", toJson module),
+        ("name", toJson info.name?),
+        ("stx", toString info.stx.prettyPrint),
+      ]
   return 0
 
 def tacticGraphCmd := `[Cli|
