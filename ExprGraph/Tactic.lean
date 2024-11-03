@@ -8,16 +8,15 @@ def Lean.Expr.mkExprGraphWithLCtx (expr : Expr) (compressUniverses? compressProo
   let lctx ← getLCtx
   let (node, graph) ← expr.mkExprGraph compressUniverses? compressProofs?
   let mut outGraph := graph
-  for (fvarId, _) in lctx.fvarIdToDecl do
-    try 
-      let (fvNode, fvGraph) ← (Expr.fvar fvarId).mkExprGraph compressUniverses? compressProofs?
-      outGraph := outGraph ∪ fvGraph |>.insertEdge ⟨.localDecl, node.id⟩ fvNode node
-    catch _ => 
-      continue
+  for (fvarId, decl) in lctx.fvarIdToDecl do
+    if decl.isAuxDecl || decl.isImplementationDetail then continue
+    let (fvNode, fvGraph) ← (Expr.fvar fvarId).mkExprGraph compressUniverses? compressProofs?
+    outGraph := outGraph ∪ fvGraph |>.insertEdge ⟨.localDecl, node.id⟩ fvNode node
   return (node, outGraph)
 
 def Lean.MVarId.mkExprGraph (id : MVarId) (compressUniverses? compressProofs? : Bool) : 
     MetaM (WithId Node × ExprGraph) := id.withContext do
+  instantiateMVarDeclMVars id
   let tp ← id.getType
   tp.mkExprGraphWithLCtx compressUniverses? compressProofs?
 
