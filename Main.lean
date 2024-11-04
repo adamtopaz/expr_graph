@@ -78,12 +78,11 @@ def typeGraphCmd := `[Cli|
 def runTypeValGraphCmd (p : Parsed) : IO UInt32 := do
   let output : String := p.positionalArg! "output" |>.as! String
   let threads : Nat := p.positionalArg! "threads" |>.as! Nat
-  let timeout : Nat := p.positionalArg! "timeout" |>.as! Nat
   let output : System.FilePath := output
   let handle ← IO.FS.Handle.mk output .write
   let options : Options := maxHeartbeats.set {} 0
   let res ← runOnMathlibConsts 
-      (numThread := threads) (opts := options) (timeout := timeout.toUInt32) 
+      (numThread := threads) (opts := options) (timeout := none)
       fun idx nm cinfo => Meta.MetaM.run' do
     let tp := cinfo.type
     let mod := (← getEnv).getModuleFor? nm
@@ -110,7 +109,6 @@ def typeValGraphCmd := `[Cli|
   ARGS:
     "output" : String; "Output file"
     "threads" : Nat; "Number of threads to use"
-    "timeout" : Nat; "Timeout for each calculation in milliseconds"
 ]
 
 def runSubexprGraphCmd (p : Parsed) : IO UInt32 := do
