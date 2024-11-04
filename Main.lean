@@ -142,7 +142,7 @@ def runSubexprGraphCmd (p : Parsed) : IO UInt32 := do
   | .error e => throw e
 
 def subexprGraphCmd := `[Cli|
-  subexpr_graph VIA runTypeValGraphCmd;
+  subexpr_graph VIA runSubexprGraphCmd;
   "Generate graphs for all (sub)expressions appearing in mathlib."
   ARGS:
     "output" : String; "Output file"
