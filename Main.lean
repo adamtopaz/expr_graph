@@ -35,13 +35,15 @@ def runOnMathlibConsts
         try withTimeout t go
         catch _e => return .ok ()
 
-def writeExprGraph (handle : IO.FS.Handle) (expr : Expr) (mdata : Json) : MetaM Unit := do
-  if ← IO.checkCanceled then return
-  let (node, graph) ← expr.mkExprGraph true true
-  if ← IO.checkCanceled then return
+def writeExprGraph 
+    (handle : IO.FS.Handle) 
+    (pp : Format) 
+    (node : WithId ExprGraph.Node) 
+    (graph : ExprGraph) 
+    (mdata : Json) : MetaM Unit := do
   handle.putStrLn <| Json.compress <| .mkObj [
     ("mdata", mdata),
-    ("pp", toString <| ← Meta.ppExpr expr),
+    ("pp", toString pp),
     ("graph", graph.mkJsonWithIdx node (fun a => toJson a.val) (fun a => toJson a.val)),
     ("dot", graph.mkDotWithIdx node (fun a => a.val.toString) (fun a => a.val.toString) hash)
   ]
@@ -58,7 +60,9 @@ def runTypeGraphCmd (p : Parsed) : IO UInt32 := do
     let tp := cinfo.type
     let mod := (← getEnv).getModuleFor? nm
     println! s!"{idx} : {nm} : {mod.getD .anonymous}" 
-    writeExprGraph handle tp <| .mkObj [
+    let (node, graph) ← tp.mkExprGraph true true
+    let pp ← Meta.ppExpr tp
+    writeExprGraph handle pp node graph <| .mkObj [
       ("name", toJson nm),
       ("module", toJson mod)
     ]
@@ -87,13 +91,17 @@ def runTypeValGraphCmd (p : Parsed) : IO UInt32 := do
     let tp := cinfo.type
     let mod := (← getEnv).getModuleFor? nm
     println! s!"{idx} : {nm} : {mod.getD .anonymous}" 
-    writeExprGraph handle tp <| .mkObj [
+    let (node, graph) ← tp.mkExprGraph true true
+    let pp ← Meta.ppExpr tp
+    writeExprGraph handle pp node graph <| .mkObj [
       ("kind", "type"),
       ("name", toJson nm),
       ("module", toJson mod)
     ]
     let some val := cinfo.value? | return .ok ()
-    writeExprGraph handle val <| .mkObj [
+    let (node, graph) ← val.mkExprGraph true true
+    let pp ← Meta.ppExpr val
+    writeExprGraph handle pp node graph <| .mkObj [
       ("kind", "value"),
       ("name", toJson nm),
       ("module", toJson mod)
@@ -111,6 +119,15 @@ def typeValGraphCmd := `[Cli|
     "threads" : Nat; "Number of threads to use"
 ]
 
+def Lean.ConstantInfo.forEachSubexprCaching 
+    (info : ConstantInfo) 
+    (f : Bool → Expr → MonadCacheT Expr α MetaM Unit) :
+    MonadCacheT Expr α MetaM Unit := do
+  let tp := info.type
+  Meta.forEachExpr tp <| f true
+  let some val := info.value? | return ()
+  Meta.forEachExpr val <| f false
+
 def runSubexprGraphCmd (p : Parsed) : IO UInt32 := do
   let output : String := p.positionalArg! "output" |>.as! String
   let threads : Nat := p.positionalArg! "threads" |>.as! Nat
@@ -120,19 +137,13 @@ def runSubexprGraphCmd (p : Parsed) : IO UInt32 := do
   let res ← runOnMathlibConsts 
       (numThread := threads) (opts := options) (timeout := none)
       fun idx nm cinfo => Meta.MetaM.run' do
-    let tp := cinfo.type
     let mod := (← getEnv).getModuleFor? nm
     println! s!"{idx} : {nm} : {mod.getD .anonymous}" 
-    Meta.forEachExpr tp fun e => do
-      writeExprGraph handle e <| .mkObj [
-        ("kind", "type"),
-        ("name", toJson nm),
-        ("module", toJson mod)
-      ]
-    let some val := cinfo.value? | return .ok ()
-    Meta.forEachExpr val fun e => do
-      writeExprGraph handle e <| .mkObj [
-        ("kind", "value"),
+    MonadCacheT.run <| cinfo.forEachSubexprCaching fun isTp? e => do 
+      let (node, graph) ← e.mkExprGraphCaching true true
+      let pp ← Meta.ppExpr e
+      writeExprGraph handle pp node graph <| .mkObj [
+        ("fromType", isTp?),
         ("name", toJson nm),
         ("module", toJson mod)
       ]

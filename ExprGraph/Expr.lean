@@ -175,10 +175,6 @@ def Lean.Level.mkExprGraph (l : Level) : WithId Node × ExprGraph :=
     let outNode : WithId Node := ⟨.levelMVar, outId⟩ 
     (outNode, {outNode})
 
--- TODO: Add inhabited instance on `WithId`
-instance : Inhabited (MonadCacheT Expr (WithIdNode × ExprGraph) MetaM (WithId Node × ExprGraph)) where
-  default := pure (⟨default, default⟩, default)
-
 partial
 def Lean.Expr.mkExprGraphCaching
     (e : Expr) 
