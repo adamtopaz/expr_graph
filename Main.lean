@@ -73,7 +73,7 @@ def runTypeGraphCmd (p : Parsed) : IO UInt32 := do
       fun idx nm cinfo => Meta.MetaM.run' do
     let tp := cinfo.type
     let mod := (← getEnv).getModuleFor? nm
-    println! s!"{idx} : {nm} : {mod.getD .anonymous}" 
+    if p.hasFlag "verbose" then println! s!"{idx} : {nm} : {mod.getD .anonymous}" 
     let (node, graph) ← tp.mkExprGraph true true
     let pp ← Meta.ppExpr tp
     writeExprGraph handle pp node graph <| .mkObj [
@@ -88,6 +88,8 @@ def runTypeGraphCmd (p : Parsed) : IO UInt32 := do
 def typeGraphCmd := `[Cli|
   type_graph VIA runTypeGraphCmd;
   "Generate graphs for types of constants appearing in mathlib."
+  FLAGS:
+    v, verbose; "Print the name of the constant being processed"
   ARGS:
     "output" : String; "Output file"
     "threads" : Nat; "Number of threads to use"
@@ -104,7 +106,7 @@ def runTypeValGraphCmd (p : Parsed) : IO UInt32 := do
       fun idx nm cinfo => Meta.MetaM.run' do
     let tp := cinfo.type
     let mod := (← getEnv).getModuleFor? nm
-    println! s!"{idx} : {nm} : {mod.getD .anonymous}" 
+    if p.hasFlag "verbose" then println! s!"{idx} : {nm} : {mod.getD .anonymous}" 
     let (node, graph) ← tp.mkExprGraph true true
     let pp ← Meta.ppExpr tp
     writeExprGraph handle pp node graph <| .mkObj [
@@ -128,6 +130,8 @@ def runTypeValGraphCmd (p : Parsed) : IO UInt32 := do
 def typeValGraphCmd := `[Cli|
   type_val_graph VIA runTypeValGraphCmd;
   "Generate graphs for types and values of constants appearing in mathlib."
+  FLAGS:
+    v, verbose; "Print the name of the constant being processed"
   ARGS:
     "output" : String; "Output file"
     "threads" : Nat; "Number of threads to use"
@@ -152,7 +156,7 @@ def runSubexprGraphCmd (p : Parsed) : IO UInt32 := do
       (numThread := threads) (opts := options) (timeout := none)
       fun idx nm cinfo => Meta.MetaM.run' do
     let mod := (← getEnv).getModuleFor? nm
-    println! s!"{idx} : {nm} : {mod.getD .anonymous}" 
+    if p.hasFlag "verbose" then println! s!"{idx} : {nm} : {mod.getD .anonymous}" 
     MonadCacheT.run <| cinfo.forEachSubexprCaching fun isTp? e => do 
       let (node, graph) ← e.mkExprGraphCaching true true
       let pp ← Meta.ppExpr e
@@ -169,6 +173,8 @@ def runSubexprGraphCmd (p : Parsed) : IO UInt32 := do
 def subexprGraphCmd := `[Cli|
   subexpr_graph VIA runSubexprGraphCmd;
   "Generate graphs for all (sub)expressions appearing in mathlib."
+  FLAGS:
+    v, verbose; "Print the name of the constant being processed"
   ARGS:
     "output" : String; "Output file"
     "threads" : Nat; "Number of threads to use"
@@ -184,7 +190,7 @@ def runSubexprLCtxGraphCmd (p : Parsed) : IO UInt32 := do
       (numThread := threads) (opts := options) (timeout := none)
       fun idx nm cinfo => Meta.MetaM.run' do
     let mod := (← getEnv).getModuleFor? nm
-    println! s!"{idx} : {nm} : {mod.getD .anonymous}" 
+    if p.hasFlag "verbose" then println! s!"{idx} : {nm} : {mod.getD .anonymous}" 
     MonadCacheT.run <| cinfo.forEachSubexprCaching fun isTp? e => do 
       let (node, graph) ← e.mkExprGraphWithLCtxCaching true true
       let pp ← Meta.ppExpr e
@@ -201,6 +207,8 @@ def runSubexprLCtxGraphCmd (p : Parsed) : IO UInt32 := do
 def subexprLCtxGraphCmd := `[Cli|
   subexpr_lctx_graph VIA runSubexprLCtxGraphCmd;
   "Generate graphs for all (sub)expressions appearing in mathlib. Graphs will include the whole local context."
+  FLAGS:
+    v, verbose; "Print the name of the constant being processed"
   ARGS:
     "output" : String; "Output file"
     "threads" : Nat; "Number of threads to use"
