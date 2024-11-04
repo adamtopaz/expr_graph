@@ -137,11 +137,10 @@ def typeValGraphCmd := `[Cli|
     "threads" : Nat; "Number of threads to use"
 ]
 
-def Lean.ConstantInfo.forEachSubexprCaching 
-    [BEq α] [Hashable α]
+def Lean.ConstantInfo.forEachSubexpr
     (info : ConstantInfo) 
-    (f : Bool → Expr → MonadCacheT α β MetaM Unit) :
-    MonadCacheT α β MetaM Unit := do
+    (f : Bool → Expr → MetaM Unit) : 
+    MetaM Unit := do
   let tp := info.type
   Meta.forEachExpr tp <| f true
   let some val := info.value? | return ()
@@ -158,8 +157,8 @@ def runSubexprGraphCmd (p : Parsed) : IO UInt32 := do
       fun idx nm cinfo => Meta.MetaM.run' do
     let mod := (← getEnv).getModuleFor? nm
     if p.hasFlag "verbose" then println! s!"{idx} : {nm} : {mod.getD .anonymous}" 
-    MonadCacheT.run <| cinfo.forEachSubexprCaching fun isTp? e => do 
-      let (node, graph) ← e.mkExprGraphCaching true true
+    cinfo.forEachSubexpr fun isTp? e => do 
+      let (node, graph) ← e.mkExprGraph true true
       let pp ← Meta.ppExpr e
       writeExprGraph handle pp node graph <| .mkObj [
         ("fromType", isTp?),
@@ -192,8 +191,8 @@ def runSubexprLCtxGraphCmd (p : Parsed) : IO UInt32 := do
       fun idx nm cinfo => Meta.MetaM.run' do
     let mod := (← getEnv).getModuleFor? nm
     if p.hasFlag "verbose" then println! s!"{idx} : {nm} : {mod.getD .anonymous}" 
-    MonadCacheT.run <| cinfo.forEachSubexprCaching fun isTp? e => do 
-      let (node, graph) ← e.mkExprGraphWithLCtxCaching true true
+    cinfo.forEachSubexpr fun isTp? e => do 
+      let (node, graph) ← e.mkExprGraphWithLCtx true true
       let pp ← Meta.ppExpr e
       writeExprGraph handle pp node graph <| .mkObj [
         ("fromType", isTp?),

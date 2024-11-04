@@ -5,7 +5,6 @@ open Lean
 namespace ExprGraph
 
 deriving instance ToJson, DecidableEq for BinderInfo
-deriving instance Hashable for LocalDecl
 
 inductive Node where
   | str (s : String) 
@@ -175,8 +174,6 @@ def Lean.Level.mkExprGraph (l : Level) : WithId Node × ExprGraph :=
   | .mvar _ => 
     let outNode : WithId Node := ⟨.levelMVar, outId⟩ 
     (outNode, {outNode})
-
-
 
 partial
 def Lean.Expr.mkExprGraphCaching
