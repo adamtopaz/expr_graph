@@ -174,6 +174,38 @@ def subexprGraphCmd := `[Cli|
     "threads" : Nat; "Number of threads to use"
 ]
 
+def runSubexprLCtxGraphCmd (p : Parsed) : IO UInt32 := do
+  let output : String := p.positionalArg! "output" |>.as! String
+  let threads : Nat := p.positionalArg! "threads" |>.as! Nat
+  let output : System.FilePath := output
+  let handle ← IO.FS.Handle.mk output .write
+  let options : Options := maxHeartbeats.set {} 0
+  let res ← runOnMathlibConsts 
+      (numThread := threads) (opts := options) (timeout := none)
+      fun idx nm cinfo => Meta.MetaM.run' do
+    let mod := (← getEnv).getModuleFor? nm
+    println! s!"{idx} : {nm} : {mod.getD .anonymous}" 
+    MonadCacheT.run <| cinfo.forEachSubexprCaching fun isTp? e => do 
+      let (node, graph) ← e.mkExprGraphWithLCtxCaching true true
+      let pp ← Meta.ppExpr e
+      writeExprGraph handle pp node graph <| .mkObj [
+        ("fromType", isTp?),
+        ("name", toJson nm),
+        ("module", toJson mod)
+      ]
+    return .ok ()
+  match res with 
+  | .ok _ => return 0
+  | .error e => throw e
+
+def subexprLCtxGraphCmd := `[Cli|
+  subexpr_lctx_graph VIA runSubexprLCtxGraphCmd;
+  "Generate graphs for all (sub)expressions appearing in mathlib. Graphs will include the whole local context."
+  ARGS:
+    "output" : String; "Output file"
+    "threads" : Nat; "Number of threads to use"
+]
+
 open Elab Term Tactic in
 def runTacticGraphCmd (p : Parsed) : IO UInt32 := do
   searchPathRef.set compile_time_search_path%
@@ -225,6 +257,7 @@ def entrypoint := `[Cli|
   typeGraphCmd;
   typeValGraphCmd;
   subexprGraphCmd;
+  subexprLCtxGraphCmd;
   tacticGraphCmd
 ]
 
