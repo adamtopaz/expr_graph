@@ -179,13 +179,11 @@ def Lean.Level.mkExprGraph (l : Level) : WithId Node × ExprGraph :=
 instance : Inhabited (MonadCacheT Expr (WithIdNode × ExprGraph) MetaM (WithId Node × ExprGraph)) where
   default := pure (⟨default, default⟩, default)
 
-partial 
-def Lean.Expr.mkExprGraph
+partial
+def Lean.Expr.mkExprGraphCaching
     (e : Expr) 
     (compressUniverses? : Bool)
     (compressProofs? : Bool) : 
-    MetaM (WithId Node × ExprGraph) := go e compressUniverses? compressProofs? |>.run where 
-go e compressUniverses? compressProofs? : 
     MonadCacheT Expr (WithId Node × ExprGraph) MetaM (WithId Node × ExprGraph) := do
   let e ← instantiateMVars e
   checkCache e fun _ => do
@@ -195,7 +193,7 @@ go e compressUniverses? compressProofs? :
     if compressProofs? && (← Meta.isProof e) then 
       let outNode : WithId Node := ⟨.proof, outId⟩
       let tp ← Meta.inferType e
-      let (tpNode, tpGraph) ← go tp compressUniverses? compressProofs?
+      let (tpNode, tpGraph) ← tp.mkExprGraphCaching compressUniverses? compressProofs?
       return (outNode, tpGraph |>.insertEdge ⟨.proofType, outId⟩ tpNode outNode)
     else
     match e with 
@@ -203,15 +201,15 @@ go e compressUniverses? compressProofs? :
       let outNode : WithId Node := ⟨.bvar, outId⟩
       return (outNode, {outNode})
     | .fvar id =>
-      let (tpNode, tpGraph) ← go (← id.getType) compressUniverses? compressProofs?
+      let (tpNode, tpGraph) ← (← id.getType).mkExprGraphCaching compressUniverses? compressProofs?
       let outNode : WithId Node := ⟨.fvar, outId⟩
       let mut outGraph := tpGraph |>.insertEdge ⟨.fvarType, outId⟩ tpNode outNode
       let some val ← id.getValue? | return (outNode, outGraph)
-      let (valNode, valGraph) ← go val compressUniverses? compressProofs?
+      let (valNode, valGraph) ← val.mkExprGraphCaching compressUniverses? compressProofs?
       outGraph := outGraph ∪ valGraph |>.insertEdge ⟨.fvarVal, outId⟩ valNode outNode
       return (outNode, outGraph)
     | .mvar mvarId =>
-      let (tpNode, tpGraph) ← go (← mvarId.getType) compressUniverses? compressProofs?
+      let (tpNode, tpGraph) ← (← mvarId.getType).mkExprGraphCaching compressUniverses? compressProofs?
       let outNode : WithId Node := ⟨.mvar, outId⟩
       let outGraph := tpGraph |>.insertEdge ⟨.mvarType, outId⟩ tpNode outNode
       return (outNode, outGraph)
@@ -230,11 +228,11 @@ go e compressUniverses? compressProofs? :
     | .app .. => 
       let outNode : WithId Node := ⟨.app, outId⟩
       let fn := e.getAppFn
-      let (fnNode, fnGraph) ← go fn compressUniverses? compressProofs?
+      let (fnNode, fnGraph) ← fn.mkExprGraphCaching compressUniverses? compressProofs?
       let mut outGraph := fnGraph |>.insertEdge ⟨.appFn, outId⟩ fnNode outNode
       let args := e.getAppArgs
       for (arg, i) in args.zipWithIndex do
-        let (argNode, argGraph) ← go arg compressUniverses? compressProofs?
+        let (argNode, argGraph) ← arg.mkExprGraphCaching compressUniverses? compressProofs?
         outGraph := outGraph ∪ argGraph |>.insertEdge ⟨.appArg i, outId⟩ argNode outNode
       return (outNode, outGraph)
     | .lam nm tp body binfo => Meta.withLocalDecl nm binfo tp fun fvar => do
@@ -242,8 +240,8 @@ go e compressUniverses? compressProofs? :
       let fvarId := fvar.fvarId!
       let binderInfo ← fvarId.getBinderInfo
       let outNode : WithId Node := ⟨.lam binderInfo, outId⟩
-      let (bodyNode, bodyGraph) ← go body compressUniverses? compressProofs?
-      let (fvarNode, fvarGraph) ← go fvar compressUniverses? compressProofs?
+      let (bodyNode, bodyGraph) ← body.mkExprGraphCaching compressUniverses? compressProofs?
+      let (fvarNode, fvarGraph) ← fvar.mkExprGraphCaching compressUniverses? compressProofs?
       let outGraph := bodyGraph ∪ fvarGraph 
         |>.insertEdge ⟨.lamBody, outId⟩ bodyNode outNode
         |>.insertEdge ⟨.lamVar, outId⟩ fvarNode outNode
@@ -253,8 +251,8 @@ go e compressUniverses? compressProofs? :
       let fvarId := fvar.fvarId!
       let binderInfo ← fvarId.getBinderInfo
       let outNode : WithId Node := ⟨.forallE binderInfo, outId⟩
-      let (bodyNode, bodyGraph) ← go body compressUniverses? compressProofs?
-      let (fvarNode, fvarGraph) ← go fvar compressUniverses? compressProofs?
+      let (bodyNode, bodyGraph) ← body.mkExprGraphCaching compressUniverses? compressProofs?
+      let (fvarNode, fvarGraph) ← fvar.mkExprGraphCaching compressUniverses? compressProofs?
       let outGraph := bodyGraph ∪ fvarGraph 
         |>.insertEdge ⟨.forallEBody, outId⟩ bodyNode outNode
         |>.insertEdge ⟨.forallEVar, outId⟩ fvarNode outNode
@@ -262,8 +260,8 @@ go e compressUniverses? compressProofs? :
     | .letE nm tp val body _ => Meta.withLetDecl nm tp val fun fvar => do
       let body := body.instantiateRev #[fvar]
       let outNode : WithId Node := ⟨.letE, outId⟩
-      let (bodyNode, bodyGraph) ← go body compressUniverses? compressProofs?
-      let (fvarNode, fvarGraph) ← go fvar compressUniverses? compressProofs?
+      let (bodyNode, bodyGraph) ← body.mkExprGraphCaching compressUniverses? compressProofs?
+      let (fvarNode, fvarGraph) ← fvar.mkExprGraphCaching compressUniverses? compressProofs?
       let mut outGraph := bodyGraph ∪ fvarGraph 
         |>.insertEdge ⟨.letEBody, outId⟩ bodyNode outNode
         |>.insertEdge ⟨.letEVar, outId⟩ fvarNode outNode
@@ -274,10 +272,16 @@ go e compressUniverses? compressProofs? :
     | .lit (.strVal a) => 
       let outNode : WithId Node := ⟨.str a, outId⟩
       return (outNode, {outNode})
-    | .mdata _data expr => go expr compressUniverses? compressProofs?
+    | .mdata _data expr => expr.mkExprGraphCaching compressUniverses? compressProofs?
     | .proj typeName idx struct => 
       let outNode : WithId Node := ⟨.proj typeName idx, outId⟩
-      let (strNode, strGraph) ← go struct compressUniverses? compressProofs?
+      let (strNode, strGraph) ← struct.mkExprGraphCaching compressUniverses? compressProofs?
       let outGraph := strGraph |>.insertEdge ⟨.projStruct, outId⟩ strNode outNode
       return (outNode, outGraph)
 
+def Lean.Expr.mkExprGraph
+    (e : Expr) 
+    (compressUniverses? : Bool)
+    (compressProofs? : Bool) : 
+    MetaM (WithId Node × ExprGraph) := 
+  e.mkExprGraphCaching compressUniverses? compressProofs? |>.run  
