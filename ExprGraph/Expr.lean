@@ -176,33 +176,26 @@ def Lean.Level.mkExprGraph (l : Level) : WithId Node × ExprGraph :=
     let outNode : WithId Node := ⟨.levelMVar, outId⟩ 
     (outNode, {outNode})
 
-def Lean.Expr.addId (e : Expr) : MetaM (WithId Expr) := do
-  let mut id : UInt64 := hash e
-  let decls := (← getLCtx).fvarIdToDecl
-  for (fvarId, localDecl) in decls do
-    id := mixHash id (hash fvarId)
-    id := mixHash id (hash localDecl)
-  return ⟨e, id⟩
+
 
 partial
 def Lean.Expr.mkExprGraphCaching
     (e : Expr) 
     (compressUniverses? : Bool)
     (compressProofs? : Bool) : 
-    MonadCacheT (WithId Expr) (WithId Node × ExprGraph) MetaM (WithId Node × ExprGraph) := do
+    MonadCacheT Expr (WithId Node × ExprGraph) MetaM (WithId Node × ExprGraph) := do
   let e ← instantiateMVars e
-  let e ← e.addId
   checkCache e fun _ => do
     let outId : UInt64 := e ::: "Lean.Expr" 
     let universeFn : Level → WithId Node × ExprGraph := 
       if compressUniverses? then Level.mkCompressedExprGraph else Level.mkExprGraph
-    if compressProofs? && (← Meta.isProof e.val) then 
+    if compressProofs? && (← Meta.isProof e) then 
       let outNode : WithId Node := ⟨.proof, outId⟩
-      let tp ← Meta.inferType e.val
+      let tp ← Meta.inferType e
       let (tpNode, tpGraph) ← tp.mkExprGraphCaching compressUniverses? compressProofs?
       return (outNode, tpGraph |>.insertEdge ⟨.proofType, outId⟩ tpNode outNode)
     else
-    match e.val with 
+    match e with 
     | .bvar _ => 
       let outNode : WithId Node := ⟨.bvar, outId⟩
       return (outNode, {outNode})
@@ -233,10 +226,10 @@ def Lean.Expr.mkExprGraphCaching
       return (outNode, outGraph)
     | .app .. => 
       let outNode : WithId Node := ⟨.app, outId⟩
-      let fn := e.val.getAppFn
+      let fn := e.getAppFn
       let (fnNode, fnGraph) ← fn.mkExprGraphCaching compressUniverses? compressProofs?
       let mut outGraph := fnGraph |>.insertEdge ⟨.appFn, outId⟩ fnNode outNode
-      let args := e.val.getAppArgs
+      let args := e.getAppArgs
       for (arg, i) in args.zipWithIndex do
         let (argNode, argGraph) ← arg.mkExprGraphCaching compressUniverses? compressProofs?
         outGraph := outGraph ∪ argGraph |>.insertEdge ⟨.appArg i, outId⟩ argNode outNode

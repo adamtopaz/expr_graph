@@ -138,9 +138,10 @@ def typeValGraphCmd := `[Cli|
 ]
 
 def Lean.ConstantInfo.forEachSubexprCaching 
+    [BEq α] [Hashable α]
     (info : ConstantInfo) 
-    (f : Bool → Expr → MonadCacheT (WithId Expr) α MetaM Unit) :
-    MonadCacheT (WithId Expr) α MetaM Unit := do
+    (f : Bool → Expr → MonadCacheT α β MetaM Unit) :
+    MonadCacheT α β MetaM Unit := do
   let tp := info.type
   Meta.forEachExpr tp <| f true
   let some val := info.value? | return ()
