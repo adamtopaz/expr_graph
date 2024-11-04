@@ -35,18 +35,32 @@ def runOnMathlibConsts
         try withTimeout t go
         catch _e => return .ok ()
 
+def mkExprGraphJson
+    (pp : Format) 
+    (node : WithId ExprGraph.Node) 
+    (graph : ExprGraph) 
+    (mdata : Json) : Json := 
+  .mkObj [
+    ("mdata", mdata),
+    ("pp", toString pp),
+    ("graph", graph.mkJsonWithIdx node (fun a => toJson a.val) (fun a => toJson a.val)),
+    ("dot", graph.mkDotWithIdx node (fun a => a.val.toString) (fun a => a.val.toString) hash)
+  ]
+
 def writeExprGraph 
     (handle : IO.FS.Handle) 
     (pp : Format) 
     (node : WithId ExprGraph.Node) 
     (graph : ExprGraph) 
     (mdata : Json) : MetaM Unit := do
-  handle.putStrLn <| Json.compress <| .mkObj [
-    ("mdata", mdata),
-    ("pp", toString pp),
-    ("graph", graph.mkJsonWithIdx node (fun a => toJson a.val) (fun a => toJson a.val)),
-    ("dot", graph.mkDotWithIdx node (fun a => a.val.toString) (fun a => a.val.toString) hash)
-  ]
+  handle.putStrLn <| Json.compress <| mkExprGraphJson pp node graph mdata
+
+def printExprGraph 
+    (pp : Format) 
+    (node : WithId ExprGraph.Node) 
+    (graph : ExprGraph) 
+    (mdata : Json) : IO Unit := do
+  println! Json.compress <| mkExprGraphJson pp node graph mdata
 
 def runTypeGraphCmd (p : Parsed) : IO UInt32 := do
   let output : String := p.positionalArg! "output" |>.as! String
@@ -94,7 +108,7 @@ def runTypeValGraphCmd (p : Parsed) : IO UInt32 := do
     let (node, graph) ← tp.mkExprGraph true true
     let pp ← Meta.ppExpr tp
     writeExprGraph handle pp node graph <| .mkObj [
-      ("kind", "type"),
+      ("fromType", true),
       ("name", toJson nm),
       ("module", toJson mod)
     ]
@@ -102,7 +116,7 @@ def runTypeValGraphCmd (p : Parsed) : IO UInt32 := do
     let (node, graph) ← val.mkExprGraph true true
     let pp ← Meta.ppExpr val
     writeExprGraph handle pp node graph <| .mkObj [
-      ("kind", "value"),
+      ("fromType", false),
       ("name", toJson nm),
       ("module", toJson mod)
     ]
@@ -179,14 +193,12 @@ def runTacticGraphCmd (p : Parsed) : IO UInt32 := do
         <| Meta.withMCtx info.mctxBefore 
         <| mkGoalStateExprGraph info.goalsBefore compressUniverses? compressProofs?
       let pp ← ctxInfo.ppGoals' info.goalsBefore
-      if !debug? then println! Json.compress <| .mkObj [
-        ("graph", graph.mkJsonWithIdx node (fun a => toJson a.val) (fun a => toJson a.val)),
-        ("dot", graph.mkDotWithIdx node (fun a => a.val.toString) (fun a => a.val.toString) hash),
-        ("pp", toString <| pp),
-        ("name", toJson info.name?),
-        ("stx", toString info.stx.prettyPrint),
-        ("usedConstants", toJson info.getUsedConstantsAsSet.toArray)
-      ]
+      if !debug? then 
+        printExprGraph pp node graph <| .mkObj [
+          ("name", toJson info.name?),
+          ("stx", toString info.stx.prettyPrint),
+          ("usedConstants", toJson info.getUsedConstantsAsSet.toArray)
+        ]
     catch err => 
       if debug? then println! Json.compress <| .mkObj [
         ("error", toString err),
@@ -215,7 +227,5 @@ def entrypoint := `[Cli|
   subexprGraphCmd;
   tacticGraphCmd
 ]
-
-
 
 def main (args : List String) : IO UInt32 := entrypoint.validate args
