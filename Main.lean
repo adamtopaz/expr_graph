@@ -43,7 +43,7 @@ def mkExprGraphJson
   .mkObj [
     ("mdata", mdata),
     ("pp", toString pp),
-    ("graph", graph.mkJsonWithIdx node (fun a => toJson a.val) (fun a => toJson a.val)),
+    ("graph", graph.mkJsonWithIdx node (fun a => a.val.tokenize) (fun a => a.val.tokenize)),
     ("dot", graph.mkDotWithIdx node (fun a => a.val.toString) (fun a => a.val.toString) hash)
   ]
 
