@@ -229,15 +229,16 @@ def runTacticGraphCmd (p : Parsed) : IO UInt32 := do
     unless info.isSubstantive do return
     let ctxInfo := { ctxInfo with options := maxHeartbeats.set ctxInfo.options 0 }
     try
-      let ⟨node, graph⟩ ← ctxInfo.runMetaM' {} 
-        <| Meta.withMCtx info.mctxBefore 
-        <| mkGoalStateExprGraph info.goalsBefore compressUniverses? compressProofs?
+      let ⟨node, graph, usedConsts⟩ ← ctxInfo.runMetaM' {} <| Meta.withMCtx info.mctxBefore <| do 
+        let (n,g) ← mkGoalStateExprGraph info.goalsBefore compressUniverses? compressProofs?
+        let usedConsts ← info.getUsedConstantsAsSet.toArray.filterM fun nm => return !(← nm.isBlackListed)
+        return (n, g, usedConsts)
       let pp ← ctxInfo.ppGoals' info.goalsBefore
       if !debug? then 
         printExprGraph pp node graph <| .mkObj [
           ("name", toJson info.name?),
           ("stx", toString info.stx.prettyPrint),
-          ("usedConstants", toJson info.getUsedConstantsAsSet.toArray)
+          ("usedConstants", toJson usedConsts)
         ]
     catch err => 
       if debug? then println! Json.compress <| .mkObj [
