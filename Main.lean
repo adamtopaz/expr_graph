@@ -39,12 +39,20 @@ def mkExprGraphJson
     (pp : Format) 
     (node : WithId ExprGraph.Node) 
     (graph : ExprGraph) 
+    (withDot : Bool)
     (mdata : Json) : Json := 
+  if withDot then 
   .mkObj [
     ("mdata", mdata),
     ("pp", toString pp),
     ("graph", graph.mkJsonWithIdx node (fun a => a.val.tokenize) (fun a => a.val.tokenize)),
     ("dot", graph.mkDotWithIdx node (fun a => a.val.toString) (fun a => a.val.toString) hash)
+  ]
+  else
+  .mkObj [
+    ("mdata", mdata),
+    ("pp", toString pp),
+    ("graph", graph.mkJsonWithIdx node (fun a => a.val.tokenize) (fun a => a.val.tokenize)),
   ]
 
 def writeExprGraph 
@@ -52,15 +60,18 @@ def writeExprGraph
     (pp : Format) 
     (node : WithId ExprGraph.Node) 
     (graph : ExprGraph) 
-    (mdata : Json) : MetaM Unit := do
-  handle.putStrLn <| Json.compress <| mkExprGraphJson pp node graph mdata
+    (withDot : Bool) 
+    (mdata : Json) : 
+    MetaM Unit := do
+  handle.putStrLn <| Json.compress <| mkExprGraphJson pp node graph withDot mdata
 
 def printExprGraph 
     (pp : Format) 
     (node : WithId ExprGraph.Node) 
     (graph : ExprGraph) 
+    (withDot : Bool)
     (mdata : Json) : IO Unit := do
-  println! Json.compress <| mkExprGraphJson pp node graph mdata
+  println! Json.compress <| mkExprGraphJson pp node graph withDot mdata 
 
 def runTypeGraphCmd (p : Parsed) : IO UInt32 := do
   let output : String := p.positionalArg! "output" |>.as! String
@@ -76,7 +87,7 @@ def runTypeGraphCmd (p : Parsed) : IO UInt32 := do
     if p.hasFlag "verbose" then println! s!"{idx} : {nm} : {mod.getD .anonymous}" 
     let (node, graph) ← tp.mkExprGraph true true
     let pp ← Meta.ppExpr tp
-    writeExprGraph handle pp node graph <| .mkObj [
+    writeExprGraph handle pp node graph (p.hasFlag "dot") <| .mkObj [
       ("name", toJson nm),
       ("module", toJson mod)
     ]
@@ -90,6 +101,7 @@ def typeGraphCmd := `[Cli|
   "Generate graphs for types of constants appearing in mathlib."
   FLAGS:
     v, verbose; "Print the name of the constant being processed"
+    d, dot; "Include dot representation of the graph"
   ARGS:
     "output" : String; "Output file"
     "threads" : Nat; "Number of threads to use"
@@ -109,7 +121,7 @@ def runTypeValGraphCmd (p : Parsed) : IO UInt32 := do
     if p.hasFlag "verbose" then println! s!"{idx} : {nm} : {mod.getD .anonymous}" 
     let (node, graph) ← tp.mkExprGraph true true
     let pp ← Meta.ppExpr tp
-    writeExprGraph handle pp node graph <| .mkObj [
+    writeExprGraph handle pp node graph (p.hasFlag "dot") <| .mkObj [
       ("fromType", true),
       ("name", toJson nm),
       ("module", toJson mod)
@@ -117,7 +129,7 @@ def runTypeValGraphCmd (p : Parsed) : IO UInt32 := do
     let some val := cinfo.value? | return .ok ()
     let (node, graph) ← val.mkExprGraph true true
     let pp ← Meta.ppExpr val
-    writeExprGraph handle pp node graph <| .mkObj [
+    writeExprGraph handle pp node graph (p.hasFlag "dot") <| .mkObj [
       ("fromType", false),
       ("name", toJson nm),
       ("module", toJson mod)
@@ -132,6 +144,7 @@ def typeValGraphCmd := `[Cli|
   "Generate graphs for types and values of constants appearing in mathlib."
   FLAGS:
     v, verbose; "Print the name of the constant being processed"
+    d, dot; "Include dot representation of the graph"
   ARGS:
     "output" : String; "Output file"
     "threads" : Nat; "Number of threads to use"
@@ -160,7 +173,7 @@ def runSubexprGraphCmd (p : Parsed) : IO UInt32 := do
     cinfo.forEachSubexpr fun isTp? e => do 
       let (node, graph) ← e.mkExprGraph true true
       let pp ← Meta.ppExpr e
-      writeExprGraph handle pp node graph <| .mkObj [
+      writeExprGraph handle pp node graph (p.hasFlag "dot") <| .mkObj [
         ("fromType", isTp?),
         ("name", toJson nm),
         ("module", toJson mod)
@@ -175,6 +188,7 @@ def subexprGraphCmd := `[Cli|
   "Generate graphs for all (sub)expressions appearing in mathlib."
   FLAGS:
     v, verbose; "Print the name of the constant being processed"
+    d, dot; "Include dot representation of the graph"
   ARGS:
     "output" : String; "Output file"
     "threads" : Nat; "Number of threads to use"
@@ -194,7 +208,7 @@ def runSubexprLCtxGraphCmd (p : Parsed) : IO UInt32 := do
     cinfo.forEachSubexpr fun isTp? e => do 
       let (node, graph) ← e.mkExprGraphWithLCtx true true
       let pp ← Meta.ppExpr e
-      writeExprGraph handle pp node graph <| .mkObj [
+      writeExprGraph handle pp node graph (p.hasFlag "dot") <| .mkObj [
         ("fromType", isTp?),
         ("name", toJson nm),
         ("module", toJson mod)
@@ -209,6 +223,7 @@ def subexprLCtxGraphCmd := `[Cli|
   "Generate graphs for all (sub)expressions appearing in mathlib. Graphs will include the whole local context."
   FLAGS:
     v, verbose; "Print the name of the constant being processed"
+    d, dot; "Include dot representation of the graph"
   ARGS:
     "output" : String; "Output file"
     "threads" : Nat; "Number of threads to use"
@@ -235,7 +250,7 @@ def runTacticGraphCmd (p : Parsed) : IO UInt32 := do
         return (n, g, usedConsts)
       let pp ← ctxInfo.ppGoals' info.goalsBefore
       if !debug? then 
-        printExprGraph pp node graph <| .mkObj [
+        printExprGraph pp node graph (p.hasFlag "dot") <| .mkObj [
           ("name", toJson info.name?),
           ("stx", toString info.stx.prettyPrint),
           ("usedConstants", toJson usedConsts)
@@ -256,6 +271,7 @@ def tacticGraphCmd := `[Cli|
     u, universes; "Include uncompressed universe levels in the graph"
     p, proofs; "Include uncompressed proofs in the graph"
     d, debug; "Only print error messages"
+    t, dot; "Include dot representation of the graph"
   ARGS:
     "module" : String; "Module to elaborate"
 ]
